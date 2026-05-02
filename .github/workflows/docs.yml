@@ -1,11 +1,19 @@
 name: docs
 
+# Builds the public docs site (https://johnbuluba.github.io/dockersnap/)
+# and deploys to GitHub Pages on every push to main. PR validation lives
+# in ci.yml — this workflow is deploy-only.
+#
+# All build commands route through `task docs:build` so local `task
+# docs:build` and CI run the same path.
+
 on:
   push:
     branches: [main]
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "Taskfile.yml"
       - "README.md"
       - "CONTRIBUTING.md"
       - "AGENTS.md"
@@ -33,20 +41,14 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install MkDocs Material
-        run: pip install --upgrade mkdocs-material
+      - run: pip install --upgrade mkdocs-material
 
-      - name: Stage repo-root docs into the docs/ tree
-        # MkDocs only sees files under docs/ (or symlinks resolved from there).
-        # We mirror CONTRIBUTING.md and AGENTS.md into docs/ at build time so
-        # the source files keep their canonical location at the repo root
-        # (where GitHub picks them up automatically).
-        run: |
-          cp CONTRIBUTING.md docs/contributing.md
-          cp AGENTS.md docs/agents.md
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build site
-        run: mkdocs build --strict
+      - run: task docs:build
 
       - uses: actions/upload-pages-artifact@v3
         with:

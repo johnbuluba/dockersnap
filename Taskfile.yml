@@ -157,6 +157,11 @@ tasks:
   #   task plugins:list       — discovered plugin names
   # The deploy:plugins task below depends on plugins:release.
 
+  go:build:
+    desc: Compile every Go package (no dashboard embed; use `task build` for that)
+    cmds:
+      - go build ./...
+
   test:
     desc: Run unit tests
     cmds:
@@ -178,9 +183,22 @@ tasks:
       - go test ./... -v -count=1 -tags=integration
 
   lint:
-    desc: Run golangci-lint
+    desc: Run golangci-lint (assumes binary on PATH; see `lint:install`)
     cmds:
-      - golangci-lint run ./...
+      - golangci-lint run --timeout=5m ./...
+
+  lint:install:
+    desc: Install golangci-lint v2 via `go install` (built against the project's Go)
+    # The official action bundles a v1 binary built with an older Go than our
+    # go.mod targets, which trips a "Go language version too low" error. Building
+    # from source against the project's toolchain sidesteps that.
+    cmds:
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
+  vulncheck:
+    desc: Run govulncheck against all packages
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   fmt:
     desc: Format Go files (gofmt + goimports)
@@ -216,12 +234,21 @@ tasks:
 
   docs:stage:
     desc: Mirror repo-root CONTRIBUTING.md + AGENTS.md into docs/ (matches CI)
-    # MkDocs only sees files under docs/. The CI workflow does the same copy
-    # before `mkdocs build` so source files stay at the repo root (where
-    # GitHub picks them up automatically).
+    # MkDocs only sees files under docs/. CI does the same copy before
+    # `mkdocs build` so source files stay at the repo root (where GitHub
+    # picks them up automatically). The sed pass rewrites cross-doc links
+    # that resolve from the repo root but not from inside docs/ — keeps
+    # `mkdocs build --strict` happy without breaking CONTRIBUTING.md when
+    # browsed on github.com.
     cmds:
       - cp CONTRIBUTING.md docs/contributing.md
       - cp AGENTS.md docs/agents.md
+      - |
+        sed -i \
+          -e 's|](AGENTS\.md|](agents.md|g' \
+          -e 's|](docs/plugins/|](plugins/|g' \
+          -e 's|](LICENSE)|](https://github.com/johnbuluba/dockersnap/blob/main/LICENSE)|g' \
+          docs/contributing.md
     sources:
       - CONTRIBUTING.md
       - AGENTS.md
@@ -244,11 +271,17 @@ tasks:
       - .venv-docs/bin/mkdocs serve
 
   docs:build:
-    desc: Build the docs site into ./site/ (with --strict, matching CI)
-    deps: [docs:venv, docs:stage]
+    desc: Build the docs site into ./site/ (--strict; works with .venv-docs/ or system mkdocs)
+    # No hard `docs:venv` dep — local users get the venv via `task docs:venv`,
+    # CI installs mkdocs-material via pip directly. We pick whichever mkdocs
+    # binary is available.
+    deps: [docs:stage]
     cmds:
       - defer: { task: docs:unstage }
-      - .venv-docs/bin/mkdocs build --strict
+      - |
+        MKDOCS=mkdocs
+        [ -x .venv-docs/bin/mkdocs ] && MKDOCS=.venv-docs/bin/mkdocs
+        "$MKDOCS" build --strict
     generates:
       - site/index.html
 
