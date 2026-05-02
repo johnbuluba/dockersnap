@@ -1,0 +1,20 @@
+---
+#
+# Ansible playbook to set up dockersnap infrastructure on a target host.
+# This is a one-time setup that:
+#   1. Installs ZFS kernel modules and userspace tools
+#   2. Creates the ZFS pool on a specified vdev
+#   3. Configures ZFS ARC max (default 5GB)
+#   4. Installs the dockersnap binary
+#   5. Writes /etc/dockersnap/config.yaml
+#   6. Enables and starts the dockersnap systemd service
+#
+
+- name: Set up dockersnap infrastructure
+  hosts: dockersnap
+  become: true
+  gather_facts: true
+
+  roles:
+    - dockersnap
+

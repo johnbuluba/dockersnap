@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+/* See docs/DASHBOARD-DESIGN.md §3b for the rationale behind every token. */
+
+@theme {
+  /* ── Mode-invariant: accent + status semantics ────────────────────── */
+  --color-accent:        oklch(0.78 0.160 75);
+  --color-accent-hover:  oklch(0.84 0.160 75);
+  --color-accent-muted:  oklch(0.78 0.160 75 / 0.18);
+  --color-accent-fg:     oklch(0.18 0.020 60);
+
+  --color-focus-ring:    oklch(0.78 0.160 75 / 0.45);
+  --color-selection:     oklch(0.78 0.160 75 / 0.30);
+
+  --color-status-running:       oklch(0.72 0.130 155);
+  --color-status-stopped:       oklch(0.62 0.020 240);
+  --color-status-error:         oklch(0.62 0.180 25);
+  --color-status-error-hover:   oklch(0.55 0.180 25);
+  --color-status-unknown:       oklch(0.55 0.005 60);
+
+  /* Typography. Both faces are self-hosted under public/fonts/ and
+     declared via @font-face below. The system fallbacks keep the UI
+     usable before the woff2s land. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Menlo", "Consolas", monospace;
+}
+
+/* ── Dark mode (default) ──────────────────────────────────────────────── */
+:root {
+  /* Tells the browser to render native form controls (option lists,
+     scrollbars, date pickers, file inputs) in their dark variant. Without
+     this, the OS-rendered <select> popup is white-on-white in dark mode
+     because the chrome ignores our Tailwind classes. */
+  color-scheme: dark;
+
+  --color-bg:             oklch(0.180 0.005 60);
+  --color-surface:        oklch(0.220 0.005 60);
+  --color-surface-subtle: oklch(0.205 0.005 60);
+  --color-surface-hover:  oklch(0.255 0.005 60);
+  --color-border:         oklch(0.300 0.005 60);
+  --color-border-strong:  oklch(0.420 0.005 60);
+  --color-text:           oklch(0.960 0.005 60);
+  --color-text-secondary: oklch(0.780 0.005 60);
+  --color-text-muted:     oklch(0.580 0.005 60);
+  --color-code-bg:        oklch(0.140 0.005 60);
+
+  --color-status-running-bg: oklch(0.32 0.05 155);
+  --color-status-stopped-bg: oklch(0.30 0.02 240);
+  --color-status-error-bg:   oklch(0.32 0.07 25);
+  --color-status-unknown-bg: oklch(0.28 0.005 60);
+}
+
+/* ── Light mode (opt-in via .light on <html>) ─────────────────────────── */
+.light {
+  color-scheme: light;
+
+  --color-bg:             oklch(0.985 0.003 60);
+  --color-surface:        oklch(1.000 0.000 0);
+  --color-surface-subtle: oklch(0.975 0.003 60);
+  --color-surface-hover:  oklch(0.960 0.003 60);
+  --color-border:         oklch(0.900 0.003 60);
+  --color-border-strong:  oklch(0.780 0.003 60);
+  --color-text:           oklch(0.200 0.010 60);
+  --color-text-secondary: oklch(0.450 0.005 60);
+  --color-text-muted:     oklch(0.620 0.005 60);
+  --color-code-bg:        oklch(0.960 0.003 60);
+
+  --color-status-running-bg: oklch(0.92 0.04 155);
+  --color-status-stopped-bg: oklch(0.92 0.02 240);
+  --color-status-error-bg:   oklch(0.93 0.05 25);
+  --color-status-unknown-bg: oklch(0.94 0.003 60);
+}
+
+/* Self-hosted fonts. Files are dropped into public/fonts/ — see
+   dashboard/public/fonts/README.md for the source URLs. Both load with
+   font-display: swap so we don't block paint on missing assets. */
+@font-face {
+  font-family: "Geist";
+  src: url("/ui/fonts/Geist-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("/ui/fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("/ui/fonts/Geist-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/ui/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/ui/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Selection color — accent at low alpha so highlighting an instance name
+   matches the rest of the palette instead of the OS default blue. */
+::selection {
+  background-color: var(--color-selection);
+}
+
+/* Native <select> option lists — `color-scheme` is a hint that some
+   browsers (notably Chrome on Linux) ignore in favor of the GTK theme.
+   Explicit colors on <option> / <optgroup> are honored cross-browser, so
+   we style them directly using the same palette tokens. */
+option,
+optgroup {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+select {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Default focus ring — components opt out by overriding outline-* utils. */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

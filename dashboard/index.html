@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/ui/favicon.svg" />
+    <title>dockersnap</title>
+    <script>
+      // Apply the persisted theme preference before paint to avoid a flash.
+      // Dark is the default; the .light class opts into the light variant.
+      try {
+        const saved = localStorage.getItem("dockersnap.theme");
+        if (saved === "light") document.documentElement.classList.add("light");
+      } catch {}
+    </script>
+  </head>
+  <body class="bg-bg text-text font-sans antialiased">
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

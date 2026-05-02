@@ -1,0 +1,19 @@
+---
+# Handlers for the dockersnap role
+
+- name: Reload ZFS module parameters
+  shell: "echo {{ dockersnap_zfs_arc_max_gb * 1073741824 }} > /sys/module/zfs/parameters/zfs_arc_max"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: Restart dockersnap service
+  systemd:
+    name: dockersnap
+    state: restarted
+
+- name: Restart systemd-networkd
+  systemd:
+    name: systemd-networkd
+    state: restarted

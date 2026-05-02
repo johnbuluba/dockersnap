@@ -1,0 +1,268 @@
+version: '3'
+
+# dockersnap build / deploy tasks. Run `task --list` for the full menu.
+#
+# Install Task: https://taskfile.dev/installation/
+#   go install github.com/go-task/task/v3/cmd/task@latest
+
+includes:
+  plugins:
+    taskfile: ./plugins/Taskfile.yml
+    dir: ./plugins
+  e2e:
+    taskfile: ./tests/Taskfile.yml
+    dir: ./tests
+
+vars:
+  BINARY: dockersnap
+  # Override per-developer via the DOCKERSNAP_VM_HOST env var, e.g.
+  #   export DOCKERSNAP_VM_HOST=user@vm.example.com
+  VM_HOST: '{{.DOCKERSNAP_VM_HOST | default ""}}'
+  VM_BINARY_PATH: /usr/local/bin/dockersnap
+  PLUGIN_DIR: /usr/local/lib/dockersnap/plugins
+
+  # Single SemVer 2.0 string composed from git state and stamped into
+  # every binary at link time. See pkg/version/version.go.
+  #
+  # Format: <tag>+<branch>.<short-sha>[.dirty]
+  # Branch slashes (e.g. feature/foo) are normalized to dashes so the
+  # result is valid build-metadata per SemVer 2.0 ([0-9A-Za-z-] only).
+  VERSION:
+    sh: |
+      tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+      branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-' || echo "unknown")
+      sha=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+      dirty=""
+      if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+        dirty=".dirty"
+      fi
+      echo "${tag}+${branch}.${sha}${dirty}"
+  LDFLAGS: -ldflags "-s -w -X 'github.com/johnbuluba/dockersnap/pkg/version.Version={{.VERSION}}'"
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  # ── build / test ────────────────────────────────────────────────────────────
+
+  build:
+    desc: Build the local binary (rebuilds the embedded dashboard bundle first)
+    deps: [ui:embed]
+    cmds:
+      - go build {{.LDFLAGS}} -o bin/{{.BINARY}} .
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - internal/dashboard/dist/**
+    generates:
+      - bin/{{.BINARY}}
+
+  # ── dashboard (Stage 1+) ────────────────────────────────────────────────────
+
+  ui:install:
+    desc: Install dashboard npm dependencies (run once after clone)
+    dir: dashboard
+    cmds:
+      - npm install
+    sources:
+      - dashboard/package.json
+      - dashboard/package-lock.json
+    generates:
+      - dashboard/node_modules/.package-lock.json
+
+  ui:dev:
+    desc: Run the dashboard dev server (Vite, /api proxied to localhost:9847)
+    dir: dashboard
+    cmds:
+      - npm run dev
+
+  ui:build:
+    desc: Build the dashboard bundle into dashboard/dist/
+    # ui:gen-types regenerates dashboard/src/lib/types/ from the Go
+    # source whenever an API/state struct changes. Deps run before
+    # cmds, so the build always picks up fresh types — and Task's
+    # sources/generates check makes it a no-op when nothing changed.
+    deps: [ui:install, ui:gen-types]
+    dir: dashboard
+    cmds:
+      - npm run build
+    sources:
+      - dashboard/src/**
+      - dashboard/index.html
+      - dashboard/vite.config.ts
+      - dashboard/tsconfig.json
+      - dashboard/package.json
+    generates:
+      - dashboard/dist/index.html
+
+  ui:embed:
+    desc: Stage dashboard/dist/ into internal/dashboard/dist/ for go:embed
+    deps: [ui:build]
+    cmds:
+      # Wipe everything except .gitkeep so a fresh clone always has the
+      # placeholder available for `go:embed all:dist` to resolve.
+      - find internal/dashboard/dist -mindepth 1 ! -name .gitkeep -exec rm -rf {} +
+      - cp -R dashboard/dist/. internal/dashboard/dist/
+    sources:
+      - dashboard/dist/**
+    generates:
+      - internal/dashboard/dist/index.html
+
+  ui:gen-types:
+    desc: Generate dashboard TS types from Go via tygo (config in tygo.yaml)
+    cmds:
+      # Pinned via go install; tygo isn't a runtime dependency, just a build tool.
+      - go run github.com/gzuidhof/tygo@v0.2.21 generate
+    sources:
+      - tygo.yaml
+      - internal/state/state.go
+      - internal/api/responses.go
+      - internal/api/server.go
+      - internal/proxy/proxy.go
+      - internal/instance/manager.go
+      - pkg/pluginsdk/types.go
+    generates:
+      - dashboard/src/lib/types/state.ts
+      - dashboard/src/lib/types/pluginsdk.ts
+      - dashboard/src/lib/types/proxy.ts
+      - dashboard/src/lib/types/instance.ts
+      - dashboard/src/lib/types/api.ts
+
+  ui:gen-types:check:
+    desc: Re-run tygo and fail if the committed TS files are stale (CI drift check)
+    cmds:
+      - task: ui:gen-types
+      - git diff --exit-code -- dashboard/src/lib/types/ || (echo "tygo output is stale; run 'task ui:gen-types' and commit." >&2 && exit 1)
+
+  ui:typecheck:
+    desc: Run TypeScript type-checking on the dashboard
+    dir: dashboard
+    cmds:
+      - npm run typecheck
+
+  ui:clean:
+    desc: Wipe the dashboard build artifacts
+    cmds:
+      - rm -rf dashboard/dist internal/dashboard/dist
+      - mkdir -p internal/dashboard/dist
+      - touch internal/dashboard/dist/.gitkeep
+
+  # Plugin build/release/clean live in plugins/Taskfile.yml. Use:
+  #   task plugins:build      — host-arch build to bin/plugins/
+  #   task plugins:release    — cross-compile to bin/plugins-linux-amd64/
+  #   task plugins:list       — discovered plugin names
+  # The deploy:plugins task below depends on plugins:release.
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./... -v -count=1
+
+  test:race:
+    desc: Run unit tests with the race detector
+    cmds:
+      - go test -race -count=1 ./...
+
+  test:cover:
+    desc: Run unit tests with coverage summary
+    cmds:
+      - go test -count=1 -cover ./...
+
+  test:integration:
+    desc: Run all tests including integration
+    cmds:
+      - go test ./... -v -count=1 -tags=integration
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  fmt:
+    desc: Format Go files (gofmt + goimports)
+    cmds:
+      - gofmt -w .
+      - goimports -w .
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf bin/
+
+  # ── local install ───────────────────────────────────────────────────────────
+
+  install:
+    desc: Install the binary locally with sudo
+    deps: [build]
+    cmds:
+      - sudo cp bin/{{.BINARY}} /usr/local/bin/{{.BINARY}}
+
+  # ── remote VM lifecycle ─────────────────────────────────────────────────────
+
+  release:
+    desc: Cross-compile for linux/amd64
+    cmds:
+      - GOOS=linux GOARCH=amd64 go build {{.LDFLAGS}} -o bin/{{.BINARY}}-linux-amd64 .
+
+  deploy:plugins:
+    desc: Cross-compile plugins and rsync bin/plugins-linux-amd64/ → {{.PLUGIN_DIR}} on the VM
+    deps: [plugins:release]
+    cmds:
+      - 'echo "==> Syncing plugins to {{.VM_HOST}}..."'
+      # Stage to a writable temp dir on the remote (the daemon's plugin dir
+      # is owned by root). Use --delete locally so removed plugins propagate.
+      - rsync -av --delete bin/plugins-linux-amd64/ {{.VM_HOST}}:/tmp/dockersnap-plugins/
+      # Mirror the staging dir into the system plugin dir as root, deleting
+      # anything that isn't in the staging set so plugin removals stick.
+      - ssh {{.VM_HOST}} 'sudo install -d -m 0755 {{.PLUGIN_DIR}} && sudo rsync -av --delete --chmod=0755 /tmp/dockersnap-plugins/ {{.PLUGIN_DIR}}/'
+      - ssh {{.VM_HOST}} 'sudo systemctl restart dockersnap'
+      - 'echo "==> Plugins synced; daemon restarted"'
+
+  deploy:
+    desc: Build, scp, and restart the daemon on the remote VM
+    deps: [release]
+    cmds:
+      - 'echo "==> Deploying {{.BINARY}} to {{.VM_HOST}}..."'
+      - scp bin/{{.BINARY}}-linux-amd64 {{.VM_HOST}}:/tmp/{{.BINARY}}
+      - ssh {{.VM_HOST}} 'sudo systemctl stop dockersnap || true && sudo mv /tmp/{{.BINARY}} {{.VM_BINARY_PATH}} && sudo chmod +x {{.VM_BINARY_PATH}} && sudo systemctl start dockersnap'
+      - 'echo "==> Deployed and restarted dockersnap service"'
+
+  deploy:only:
+    desc: scp + restart without rebuilding (uses bin/{{.BINARY}}-linux-amd64 as-is)
+    cmds:
+      - 'echo "==> Deploying pre-built binary to {{.VM_HOST}}..."'
+      - scp bin/{{.BINARY}}-linux-amd64 {{.VM_HOST}}:/tmp/{{.BINARY}}
+      - ssh {{.VM_HOST}} 'sudo systemctl stop dockersnap || true && sudo mv /tmp/{{.BINARY}} {{.VM_BINARY_PATH}} && sudo chmod +x {{.VM_BINARY_PATH}} && sudo systemctl start dockersnap'
+      - 'echo "==> Deployed and restarted dockersnap service"'
+
+  ssh:
+    desc: Open a shell on the VM
+    cmds:
+      - ssh {{.VM_HOST}}
+
+  status:
+    desc: Show daemon service status + dockersnap list on the VM
+    cmds:
+      - ssh {{.VM_HOST}} 'sudo systemctl status dockersnap --no-pager; echo "---"; sudo {{.VM_BINARY_PATH}} list'
+
+  logs:
+    desc: Tail the last 50 lines of daemon logs on the VM
+    cmds:
+      - ssh {{.VM_HOST}} 'sudo journalctl -u dockersnap -n 50 --no-pager'
+
+  logs:follow:
+    desc: Follow daemon logs on the VM (Ctrl-C to exit)
+    cmds:
+      - ssh {{.VM_HOST}} 'sudo journalctl -u dockersnap -f'
+
+  # ── e2e (integration) tests live in tests/Taskfile.yml ─────────────────────
+  # See: task e2e:all, e2e:run, e2e:plugins:run, e2e:plugins:kind, e2e:plugins:echo

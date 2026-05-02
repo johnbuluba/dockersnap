@@ -1,0 +1,65 @@
+---
+# Sync plugin binaries from {{ dockersnap_plugins_src_dir }}/ → {{ dockersnap_plugins_dir }}.
+#
+# Operators add a new plugin by creating plugins/<name>/main.go on the build
+# host and re-running `task plugins:release` — no edits to this role needed.
+# Plugins removed from the source dir are also removed from the daemon dir.
+
+- name: Create plugin directory
+  ansible.builtin.file:
+    path: "{{ dockersnap_plugins_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Discover available plugin binaries
+  ansible.builtin.find:
+    paths: "{{ dockersnap_plugins_src_dir }}"
+    file_type: file
+  register: dockersnap_plugins_discovered
+  delegate_to: localhost
+  become: false
+
+- name: Fail when no plugin binaries found and plugins are enabled
+  ansible.builtin.assert:
+    that: dockersnap_plugins_discovered.matched | int > 0
+    fail_msg: >-
+      No plugin binaries found in {{ dockersnap_plugins_src_dir }}.
+      Build them first with `task plugins:release`.
+
+- name: Sync plugin binaries to {{ dockersnap_plugins_dir }}
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ dockersnap_plugins_dir }}/{{ item.path | basename }}"
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ dockersnap_plugins_discovered.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  notify: Restart dockersnap service
+
+- name: List plugins currently installed on the daemon
+  ansible.builtin.find:
+    paths: "{{ dockersnap_plugins_dir }}"
+    file_type: file
+  register: dockersnap_plugins_installed
+
+- name: Remove plugins that no longer exist in source
+  ansible.builtin.file:
+    path: "{{ dockersnap_plugins_dir }}/{{ item }}"
+    state: absent
+  loop: >-
+    {{
+      dockersnap_plugins_installed.files
+      | map(attribute='path')
+      | map('basename')
+      | difference(
+          dockersnap_plugins_discovered.files
+          | map(attribute='path')
+          | map('basename')
+        )
+      | list
+    }}
+  notify: Restart dockersnap service

@@ -1,0 +1,24 @@
+---
+# Main task file for dockersnap role
+
+- name: Install ZFS packages and create pool
+  import_tasks: zfs.yml
+  tags: dockersnap-zfs
+
+- name: Configure Docker for dockersnap
+  import_tasks: docker.yml
+  tags: dockersnap-docker
+
+- name: Install runtime dependencies (socat, nsenter, iptables, etc.)
+  import_tasks: dependencies.yml
+  tags: dockersnap-deps
+
+- name: Install dockersnap binary and configure service
+  import_tasks: install.yml
+  tags: dockersnap-install
+
+- name: Install workload plugins
+  import_tasks: plugins.yml
+  when: dockersnap_plugins_enabled
+  tags: dockersnap-plugins
+

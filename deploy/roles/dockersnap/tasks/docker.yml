@@ -1,0 +1,85 @@
+---
+# Install Docker CE and disable the default systemd service.
+# dockersnap manages its own dockerd processes per instance.
+
+- name: Gather OS facts
+  setup:
+    gather_subset:
+      - '!all'
+      - distribution
+      - os_family
+
+- name: Check if Docker is installed
+  command: docker --version
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker CE
+  when: docker_check.rc != 0
+  block:
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        filename: docker
+        state: present
+
+    - name: Install Docker CE packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+        state: present
+        update_cache: true
+
+- name: Stop and disable the default Docker service
+  # dockersnap manages its own dockerd instances — the system-wide daemon would conflict
+  systemd:
+    name: docker
+    enabled: false
+    state: stopped
+  ignore_errors: true
+
+- name: Stop and disable Docker socket activation
+  systemd:
+    name: docker.socket
+    enabled: false
+    state: stopped
+  ignore_errors: true
+
+- name: Stop and disable containerd (dockersnap daemons start their own)
+  systemd:
+    name: containerd
+    enabled: false
+    state: stopped
+  ignore_errors: true
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true

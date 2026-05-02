@@ -1,0 +1,13 @@
+---
+# Host-specific variables for the dockersnap VM.
+#
+# Configure an outbound HTTP(S) proxy here if your dockerd instances need
+# one to pull images. Leave empty (the defaults) to skip proxy injection.
+#
+# Example:
+#   dockersnap_proxy_http:  "http://proxy.example.com:8080"
+#   dockersnap_proxy_https: "http://proxy.example.com:8080"
+#   dockersnap_proxy_no_proxy: "localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.example.com"
+dockersnap_proxy_http: ""
+dockersnap_proxy_https: ""
+dockersnap_proxy_no_proxy: ""

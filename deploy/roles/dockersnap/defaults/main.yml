@@ -1,0 +1,63 @@
+---
+# Default variables for the dockersnap Ansible role.
+
+# ZFS pool configuration
+dockersnap_zfs_pool: "dockersnap"
+dockersnap_zfs_vdev: "/dev/sdb"  # Disk or partition for ZFS pool
+dockersnap_zfs_vdev_type: ""      # e.g., "mirror" if using multiple disks
+dockersnap_zfs_arc_max_gb: 5
+
+# Dataset configuration
+dockersnap_dataset_prefix: "instances"
+
+# Network configuration
+dockersnap_network_range: "10.0.0.0/8"
+dockersnap_network_subnet_size: 16
+dockersnap_network_base_offset: "10.10.0.0"
+dockersnap_network_metallb_offset: "10.10"
+
+# Docker DNS (usually the docker bridge gateway running dnsmasq)
+dockersnap_docker_dns:
+  - "172.17.0.1"
+
+# Proxy configuration for dockerd instances (leave empty to disable)
+dockersnap_proxy_http: ""
+dockersnap_proxy_https: ""
+dockersnap_proxy_no_proxy: ""
+
+# API configuration
+dockersnap_api_listen: "0.0.0.0:9847"
+dockersnap_api_token: ""
+dockersnap_api_proxy_bind: "0.0.0.0"
+
+# Binary installation
+dockersnap_binary_src: "../bin/dockersnap-linux-amd64"
+dockersnap_binary_dest: "/usr/local/bin/dockersnap"
+
+# Paths
+dockersnap_config_dir: "/etc/dockersnap"
+dockersnap_state_dir: "/var/lib/dockersnap"
+dockersnap_run_dir: "/run/dockersnap"
+
+# Workload plugins (see docs/PLUGIN-DESIGN.md)
+# Set dockersnap_plugins_enabled: false to skip plugin install entirely.
+dockersnap_plugins_enabled: true
+dockersnap_plugins_dir: "/usr/local/lib/dockersnap/plugins"
+dockersnap_plugins_health_poll_interval: "30s"
+dockersnap_plugins_health_failure_threshold: 3
+# Source directory (relative to deploy/) holding cross-compiled plugin binaries.
+# Build with `task plugins:release` — every plugins/<name>/ produces
+# {{ dockersnap_plugins_src_dir }}/<name>.
+dockersnap_plugins_src_dir: "../bin/plugins-linux-amd64"
+
+# CLI tools installed on the VM for use with dockersnap instances.
+# Defaults point at upstream sources; override these to use an internal
+# mirror or a private artifactory.
+dockersnap_kubectl_repo: "https://dl.k8s.io"
+dockersnap_helm_repo:    "https://get.helm.sh"
+dockersnap_helm_version: "v3.20.0"
+dockersnap_kind_repo:    "https://github.com/kubernetes-sigs/kind/releases/download"
+dockersnap_kind_version: "v0.29.0"
+# Set to false only when using self-signed certificates on a private mirror.
+dockersnap_validate_certs: true
+

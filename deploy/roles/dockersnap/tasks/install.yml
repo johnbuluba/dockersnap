@@ -1,0 +1,75 @@
+---
+# Install dockersnap binary and configure systemd service
+
+- name: Create dockersnap directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ dockersnap_config_dir }}"
+    - "{{ dockersnap_state_dir }}"
+    - "{{ dockersnap_run_dir }}"
+
+- name: Copy dockersnap binary
+  copy:
+    src: "{{ dockersnap_binary_src }}"
+    dest: "{{ dockersnap_binary_dest }}"
+    mode: '0755'
+  notify: Restart dockersnap service
+
+- name: Write dockersnap config
+  template:
+    src: config.yaml.j2
+    dest: "{{ dockersnap_config_dir }}/config.yaml"
+    mode: '0600'
+  notify: Restart dockersnap service
+
+- name: Install dockersnap systemd service
+  template:
+    src: dockersnap.service.j2
+    dest: /etc/systemd/system/dockersnap.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart dockersnap service
+
+- name: Enable and start dockersnap service
+  systemd:
+    name: dockersnap
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Install systemd-networkd exclusion for dockersnap veths
+  copy:
+    content: |
+      # Prevent systemd-networkd from managing dockersnap veth interfaces.
+      # Without this, networkd overrides our manually-assigned IPs with DHCP/link-local.
+      [Match]
+      Name=ve-*
+
+      [Link]
+      Unmanaged=yes
+
+      [Network]
+      DHCP=no
+      LinkLocalAddressing=no
+      IPv6AcceptRA=no
+      LLDP=no
+      EmitLLDP=no
+    dest: /etc/systemd/network/10-dockersnap-veth.network
+    mode: '0644'
+  notify: Restart systemd-networkd
+
+- name: Set kernel limits for parallel kind clusters
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - { key: "fs.inotify.max_user_instances", value: "1024" }
+    - { key: "fs.inotify.max_user_watches", value: "524288" }
+

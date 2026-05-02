@@ -1,0 +1,49 @@
+# Binaries — main bin and per-plugin sub-dirs (bin/plugins/, bin/plugins-linux-amd64/).
+bin/
+*.exe
+
+# IDE
+.idea/
+.vscode/
+# .claude/ holds per-developer Claude Code state (transcripts, settings,
+# cache) that shouldn't be shared. Two things ARE shared with the team
+# and tracked in-repo: project-scoped skills and the project hint files.
+# Listing each ignored child explicitly is the only pattern git accepts —
+# once `.claude/` itself is ignored, negative patterns inside it have
+# no effect.
+.claude/projects/
+.claude/cache/
+.claude/transcripts/
+.claude/settings.local.json
+.claude/state.json
+.claude/local/
+.claude/scheduled_tasks.lock
+
+# OS
+.DS_Store
+
+# Go
+vendor/
+
+# Task (https://taskfile.dev) cache
+.task/
+
+# Ansible
+deploy/.venv/
+deploy/inventory.yml
+*.retry
+
+# Symlinks to external repos (for reference only)
+ci
+
+# Personal session notes — kept locally, not shipped publicly.
+SESSION.md
+
+# Dashboard build artifacts
+dashboard/node_modules/
+dashboard/dist/
+# `task ui:embed` populates this from dashboard/dist/. Keep the directory
+# (so //go:embed all:dist resolves) but ignore the contents.
+internal/dashboard/dist/*
+!internal/dashboard/dist/.gitkeep
+

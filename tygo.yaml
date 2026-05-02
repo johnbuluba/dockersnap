@@ -1,0 +1,64 @@
+# tygo config — generates TypeScript interfaces from Go structs to keep
+# the dashboard's wire types in sync with the daemon's Go types.
+#
+# Regenerate with `task ui:gen-types`. Generated files live under
+# dashboard/src/lib/types/ and are committed (so a fresh checkout
+# typechecks without running the generator); CI re-runs the generator
+# and `git diff --exit-code`s to catch drift.
+#
+# Cross-package references: tygo emits one TS file per Go package and
+# can't link across files automatically. We declare type_mappings to
+# rewrite cross-package references to a local symbol name and add a
+# `frontmatter` import line so the generated TS finds it.
+
+packages:
+  # ── pluginsdk (the dependency for everyone else) ────────────────────────
+  - path: github.com/johnbuluba/dockersnap/pkg/pluginsdk
+    output_path: dashboard/src/lib/types/pluginsdk.ts
+    include_files:
+      - types.go
+    enum_style: "union"
+    type_mappings:
+      "time.Time": "string"
+
+  # ── state.Instance ──────────────────────────────────────────────────────
+  - path: github.com/johnbuluba/dockersnap/internal/state
+    output_path: dashboard/src/lib/types/state.ts
+    include_files:
+      - state.go
+    enum_style: "union"
+    type_mappings:
+      "time.Time": "string"
+
+  # ── proxy port mappings ────────────────────────────────────────────────
+  - path: github.com/johnbuluba/dockersnap/internal/proxy
+    output_path: dashboard/src/lib/types/proxy.ts
+    include_files:
+      - proxy.go
+    enum_style: "union"
+    type_mappings:
+      "time.Time": "string"
+
+  # ── instance.ProgressEvent (NDJSON streaming events) ───────────────────
+  - path: github.com/johnbuluba/dockersnap/internal/instance
+    output_path: dashboard/src/lib/types/instance.ts
+    include_files:
+      - manager.go
+    enum_style: "union"
+    type_mappings:
+      "time.Time": "string"
+
+  # ── api response shapes (depend on pluginsdk types) ────────────────────
+  - path: github.com/johnbuluba/dockersnap/internal/api
+    output_path: dashboard/src/lib/types/api.ts
+    include_files:
+      - responses.go
+      - server.go
+    enum_style: "union"
+    type_mappings:
+      "time.Time": "string"
+      "pluginsdk.HealthCheck": "HealthCheck"
+      "pluginsdk.PortInfo": "PortInfo"
+      "pluginsdk.ConfigOption": "ConfigOption"
+    frontmatter: |
+      import type { HealthCheck, PortInfo, ConfigOption } from "./pluginsdk";

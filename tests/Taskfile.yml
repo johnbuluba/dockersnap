@@ -1,0 +1,136 @@
+version: '3'
+
+# Sub-Taskfile for integration tests. Invoked from the root Taskfile via:
+#   includes:
+#     e2e:
+#       taskfile: ./tests/Taskfile.yml
+#       dir: ./tests
+#
+# - tests/e2e/         → core integration suite (instance lifecycle, ZFS,
+#                        netns, iptables, systemd) — built as the
+#                        e2e:build / e2e:deploy / e2e: tasks.
+# - tests/plugins/<name>/ → per-plugin integration suite, auto-discovered.
+#                            Build/deploy/run individually via
+#                            e2e:plugins:<name>:* or all-at-once via
+#                            e2e:plugins:* .
+
+vars:
+  OUT_DIR:        '{{.ROOT_DIR}}/bin/tests'
+  STAGING_DIR:    /tmp/dockersnap-tests
+  PLUGIN_TESTS:
+    sh: find plugins -mindepth 2 -maxdepth 2 -name 'main_test.go' -printf '%h\n' | sed 's|^plugins/||' | sort
+
+tasks:
+  default:
+    desc: List integration-test tasks
+    cmds:
+      - task --list
+    silent: true
+
+  list:
+    desc: List discovered plugin test suites
+    cmds:
+      - 'echo "{{.PLUGIN_TESTS}}"'
+
+  # ── core e2e suite ──────────────────────────────────────────────────────────
+
+  build:
+    desc: Cross-compile the core e2e test binary for the VM
+    cmds:
+      - mkdir -p {{.OUT_DIR}}
+      - GOOS=linux GOARCH=amd64 go test -tags=integration -c -o {{.OUT_DIR}}/e2e ./e2e/
+
+  deploy:
+    desc: scp the core e2e test binary to the VM
+    deps: [build]
+    cmds:
+      - ssh {{.VM_HOST}} 'mkdir -p {{.STAGING_DIR}}'
+      - scp {{.OUT_DIR}}/e2e {{.VM_HOST}}:{{.STAGING_DIR}}/e2e
+
+  run:
+    desc: Build, deploy, and run the core e2e suite on the VM
+    deps: [deploy]
+    cmds:
+      # -parallel 4: core e2e tests are cheap (each spawns one tiny
+      # dockerd, no workload). Four-way parallelism is comfortable on
+      # the test VM and cuts wall time roughly in half. Tests that
+      # mutate global daemon state (TestEdge_ReconcileAfterDaemonRestart,
+      # TestEdge_SubnetRecycling, TestErrorCases) opt out of t.Parallel
+      # and run serially before the parallel batch.
+      - ssh {{.VM_HOST}} 'sudo {{.STAGING_DIR}}/e2e -test.v -test.parallel 4 -test.timeout 15m'
+
+  all:
+    desc: Run the full integration matrix (core e2e + every plugin suite)
+    cmds:
+      - task: run
+      - task: plugins:run
+
+  # ── plugin integration suites ───────────────────────────────────────────────
+
+  plugins:build:
+    desc: Cross-compile every plugin integration test binary
+    cmds:
+      - mkdir -p {{.OUT_DIR}}
+      - for: {var: PLUGIN_TESTS}
+        cmd: GOOS=linux GOARCH=amd64 go test -tags=integration -c -o {{.OUT_DIR}}/e2e-{{.ITEM}} ./plugins/{{.ITEM}}/
+
+  plugins:deploy:
+    desc: scp every plugin test binary to the VM staging dir
+    deps: [plugins:build]
+    cmds:
+      - ssh {{.VM_HOST}} 'mkdir -p {{.STAGING_DIR}}'
+      - rsync -av {{.OUT_DIR}}/ {{.VM_HOST}}:{{.STAGING_DIR}}/
+
+  plugins:run:
+    desc: Run every plugin integration suite on the VM (sequentially across plugins; parallel within each)
+    deps: [plugins:deploy]
+    cmds:
+      # Per-plugin -parallel caps tuned to the workload weight:
+      #   echo  → 6 (lightweight HTTP container, ~5s per test)
+      #   kind  → 2 (each kind cluster ~1 GB RAM + nested containerd /
+      #             kubelet / etcd; 3 occasionally OOMs the longer
+      #             clone tests on a 4-core/8GB VM)
+      # Suites still run sequentially across plugins because they share
+      # the same daemon and would compete for subnet allocations.
+      - for: {var: PLUGIN_TESTS}
+        cmd: |
+          case {{.ITEM}} in
+            kind)  PARALLEL=2 ;;
+            *)     PARALLEL=6 ;;
+          esac
+          ssh {{.VM_HOST}} "echo '=== plugin {{.ITEM}} (parallel=$PARALLEL) ===' && sudo {{.STAGING_DIR}}/e2e-{{.ITEM}} -test.v -test.parallel $PARALLEL -test.timeout 30m"
+
+  # Convenience aliases: task e2e:plugins:<name> builds, deploys, and runs
+  # exactly one plugin's tests. Add a new plugin's suite by creating
+  # tests/plugins/<name>/main_test.go — the for-loop in plugins:* picks it
+  # up automatically; the named one-shot tasks below need a manual entry.
+
+  plugins:kind:
+    desc: Build, deploy, run only kind plugin integration tests on the VM
+    cmds:
+      - mkdir -p {{.OUT_DIR}}
+      - GOOS=linux GOARCH=amd64 go test -tags=integration -c -o {{.OUT_DIR}}/e2e-kind ./plugins/kind/
+      - ssh {{.VM_HOST}} 'mkdir -p {{.STAGING_DIR}}'
+      - scp {{.OUT_DIR}}/e2e-kind {{.VM_HOST}}:{{.STAGING_DIR}}/e2e-kind
+      # -parallel 2: kind clusters are heavy (each ~1GB RAM + nested
+      # containerd/kubelet/etcd). 3 occasionally OOMs / hits inotify
+      # ceilings during the longer clone tests. 2 is the sweet spot on
+      # a 4-core/8GB test VM. Bump back up if/when the VM grows.
+      - ssh {{.VM_HOST}} 'sudo {{.STAGING_DIR}}/e2e-kind -test.v -test.parallel 2 -test.timeout 30m'
+
+  plugins:echo:
+    desc: Build, deploy, run only echo plugin integration tests on the VM
+    cmds:
+      - mkdir -p {{.OUT_DIR}}
+      - GOOS=linux GOARCH=amd64 go test -tags=integration -c -o {{.OUT_DIR}}/e2e-echo ./plugins/echo/
+      - ssh {{.VM_HOST}} 'mkdir -p {{.STAGING_DIR}}'
+      - scp {{.OUT_DIR}}/e2e-echo {{.VM_HOST}}:{{.STAGING_DIR}}/e2e-echo
+      # -parallel 6: echo containers are tiny; the suite finishes in ~30s
+      # with this fan-out vs ~3min serial.
+      - ssh {{.VM_HOST}} 'sudo {{.STAGING_DIR}}/e2e-echo -test.v -test.parallel 6 -test.timeout 10m'
+
+  clean:
+    desc: Remove integration-test build artifacts (local) and staging (remote)
+    cmds:
+      - rm -rf {{.OUT_DIR}}
+      - ssh {{.VM_HOST}} 'rm -rf {{.STAGING_DIR}}' || true

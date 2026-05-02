@@ -1,0 +1,20 @@
+[Unit]
+Description=dockersnap - ZFS snapshot manager for Docker/Kind clusters
+After=network.target docker.service zfs.target
+Requires=zfs.target
+
+[Service]
+Type=simple
+ExecStart={{ dockersnap_binary_dest }} serve --config {{ dockersnap_config_dir }}/config.yaml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=false
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target
+

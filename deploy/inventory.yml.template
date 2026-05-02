@@ -1,0 +1,19 @@
+# Copy this file to inventory.yml and adjust for your environment.
+
+all:
+  hosts:
+    target:
+      ansible_host: <IP_ADDRESS>
+      ansible_user: <USER>
+      # ansible_ssh_common_args: '-o ProxyJump=user@bastion'
+
+  children:
+    dockersnap:
+      hosts:
+        target:
+
+  vars:
+    ansible_become_method: sudo
+    ansible_connection: ssh
+    ansible_ssh_pipelining: true
+

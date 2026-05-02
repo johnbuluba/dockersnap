@@ -1,0 +1,64 @@
+---
+# Install ZFS and create pool (Ubuntu 24.04+)
+# ZFS is available in the main Ubuntu repo — no PPA needed.
+
+- name: Install ZFS packages
+  apt:
+    name:
+      - zfsutils-linux
+    state: present
+    update_cache: true
+
+- name: Load ZFS kernel module
+  modprobe:
+    name: zfs
+    state: present
+
+- name: Ensure ZFS module loads on boot
+  copy:
+    dest: /etc/modules-load.d/zfs.conf
+    content: "zfs\n"
+    mode: '0644'
+
+- name: Set ZFS ARC max (runtime)
+  shell: "echo {{ dockersnap_zfs_arc_max_gb * 1073741824 }} > /sys/module/zfs/parameters/zfs_arc_max"
+  changed_when: false
+
+- name: Set ZFS ARC max (persistent across reboots)
+  copy:
+    dest: /etc/modprobe.d/zfs.conf
+    content: "options zfs zfs_arc_max={{ dockersnap_zfs_arc_max_gb * 1073741824 }}\n"
+    mode: '0644'
+
+- name: Check if ZFS pool already exists
+  command: zpool list {{ dockersnap_zfs_pool }}
+  register: zpool_check
+  changed_when: false
+  failed_when: false
+
+- name: Create ZFS pool
+  command: >
+    zpool create
+    -o ashift=12
+    -O compression=lz4
+    -O atime=off
+    -O xattr=sa
+    {{ dockersnap_zfs_pool }}
+    {{ dockersnap_zfs_vdev_type }}
+    {{ dockersnap_zfs_vdev }}
+  when: zpool_check.rc != 0
+
+- name: Create parent dataset for instances
+  shell: >
+    zfs list {{ dockersnap_zfs_pool }}/{{ dockersnap_dataset_prefix }} 2>/dev/null ||
+    zfs create {{ dockersnap_zfs_pool }}/{{ dockersnap_dataset_prefix }}
+  changed_when: false
+
+- name: Ensure ZFS services are enabled
+  systemd:
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - zfs-import-cache
+    - zfs-mount
+    - zfs.target

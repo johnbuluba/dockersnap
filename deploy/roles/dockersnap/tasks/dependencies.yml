@@ -1,0 +1,94 @@
+---
+# Install runtime dependencies required by dockersnap.
+# - socat: used by the TCP port proxy (nsenter+socat) for bridging connections
+#   into network namespaces.
+# - iproute2: provides 'ip' command for network namespace, veth, and route management.
+# - iptables: NAT and forwarding rules for namespace isolation.
+# - util-linux: provides 'nsenter' for entering network namespaces.
+# - procps: provides 'sysctl' for tuning kernel parameters inside namespaces.
+# - dnsmasq: DNS resolution for .internal domains (MetalLB VIPs).
+# - curl: downloading binaries.
+# - ca-certificates: TLS verification for downloads.
+
+- name: Install dockersnap runtime dependencies
+  apt:
+    name:
+      - socat
+      - iproute2
+      - iptables
+      - util-linux
+      - procps
+      - dnsmasq
+      - curl
+      - ca-certificates
+    state: present
+    update_cache: true
+
+# Install kubectl
+- name: Get latest kubectl version
+  command: "curl -kL -s {{ dockersnap_kubectl_repo }}/release/stable.txt"
+  register: _kubectl_version
+  changed_when: false
+  environment:
+    http_proxy: "{{ dockersnap_proxy_http | default('') }}"
+    https_proxy: "{{ dockersnap_proxy_https | default('') }}"
+    no_proxy: "{{ dockersnap_proxy_no_proxy | default('') }}"
+
+- name: Install kubectl binary
+  get_url:
+    url: "{{ dockersnap_kubectl_repo }}/release/{{ _kubectl_version.stdout }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
+    owner: root
+    group: root
+    validate_certs: "{{ dockersnap_validate_certs | default(true) }}"
+  environment:
+    http_proxy: "{{ dockersnap_proxy_http | default('') }}"
+    https_proxy: "{{ dockersnap_proxy_https | default('') }}"
+    no_proxy: "{{ dockersnap_proxy_no_proxy | default('') }}"
+
+# Install helm
+- name: Ensure Helm version directory exists
+  file:
+    path: "/usr/local/bin/helm-{{ dockersnap_helm_version }}"
+    state: directory
+    mode: '0755'
+
+- name: Download and extract Helm binary
+  unarchive:
+    src: "{{ dockersnap_helm_repo }}/helm-{{ dockersnap_helm_version }}-linux-amd64.tar.gz"
+    dest: "/usr/local/bin/helm-{{ dockersnap_helm_version }}"
+    remote_src: true
+    creates: "/usr/local/bin/helm-{{ dockersnap_helm_version }}/linux-amd64/helm"
+    validate_certs: "{{ dockersnap_validate_certs | default(true) }}"
+  environment:
+    http_proxy: "{{ dockersnap_proxy_http | default('') }}"
+    https_proxy: "{{ dockersnap_proxy_https | default('') }}"
+    no_proxy: "{{ dockersnap_proxy_no_proxy | default('') }}"
+
+- name: Symlink Helm binary
+  file:
+    src: "/usr/local/bin/helm-{{ dockersnap_helm_version }}/linux-amd64/helm"
+    dest: /usr/local/bin/helm
+    state: link
+    force: true
+
+# Install kind
+- name: Download Kind binary
+  get_url:
+    url: "{{ dockersnap_kind_repo }}/{{ dockersnap_kind_version }}/kind-linux-amd64"
+    dest: "/usr/local/bin/kind-{{ dockersnap_kind_version }}"
+    mode: '0755'
+    validate_certs: "{{ dockersnap_validate_certs | default(true) }}"
+  environment:
+    http_proxy: "{{ dockersnap_proxy_http | default('') }}"
+    https_proxy: "{{ dockersnap_proxy_https | default('') }}"
+    no_proxy: "{{ dockersnap_proxy_no_proxy | default('') }}"
+
+- name: Symlink Kind binary
+  file:
+    src: "/usr/local/bin/kind-{{ dockersnap_kind_version }}"
+    dest: /usr/local/bin/kind
+    state: link
+    force: true
+

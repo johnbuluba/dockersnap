@@ -1,0 +1,56 @@
+version: '3'
+
+# Sub-Taskfile for plugins. Invoked from the root Taskfile via:
+#   includes:
+#     plugins:
+#       taskfile: ./plugins/Taskfile.yml
+#       dir: ./plugins
+#
+# Discovers every sibling directory containing a main.go and builds it.
+# Add a new plugin by creating plugins/<name>/main.go — no edits required here.
+
+vars:
+  OUT_DIR: '{{.ROOT_DIR}}/bin/plugins'
+  RELEASE_DIR: '{{.ROOT_DIR}}/bin/plugins-linux-amd64'
+  PLUGINS:
+    sh: find . -mindepth 2 -maxdepth 2 -name 'main.go' -printf '%h\n' | sed 's|^./||' | sort
+  # LDFLAGS is inherited from the root Taskfile (parent vars cascade into
+  # included taskfiles) so plugin binaries embed the same git metadata as
+  # the daemon. Builds outside Task (plain `go build ./plugins/<name>/`)
+  # fall back to the defaults in pkg/version.
+
+tasks:
+  default:
+    desc: Show available plugin tasks
+    cmds:
+      - task --list
+    silent: true
+
+  list:
+    desc: List discovered plugins (sourced from any plugins/<name>/main.go)
+    cmds:
+      - 'echo "{{.PLUGINS}}"'
+
+  build:
+    desc: Build every plugin to bin/plugins/<name> (host arch)
+    cmds:
+      - mkdir -p {{.OUT_DIR}}
+      - for: {var: PLUGINS}
+        cmd: go build {{.LDFLAGS}} -o {{.OUT_DIR}}/{{.ITEM}} ./{{.ITEM}}/
+
+  release:
+    desc: Cross-compile every plugin to bin/plugins-linux-amd64/<name>
+    cmds:
+      - mkdir -p {{.RELEASE_DIR}}
+      - for: {var: PLUGINS}
+        cmd: GOOS=linux GOARCH=amd64 go build {{.LDFLAGS}} -o {{.RELEASE_DIR}}/{{.ITEM}} ./{{.ITEM}}/
+
+  clean:
+    desc: Remove plugin build artifacts
+    cmds:
+      - rm -rf {{.OUT_DIR}} {{.RELEASE_DIR}}
+
+  test:
+    desc: Run plugin unit tests
+    cmds:
+      - go test ./...
