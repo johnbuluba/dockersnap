@@ -36,19 +36,32 @@ Each "instance" is a self-contained environment: its own ZFS dataset, its own Do
 5. **Remote VM access:** SSH to your dockersnap host (set `DOCKERSNAP_VM_HOST=user@vm.example.com` for the deploy tasks). Use `sudo` for privileged ops. If you're behind a corporate proxy, set `HTTP(S)_PROXY` for external downloads. `sudo bash` is blocked — use `sudo sh -c` instead.
 6. **Git no-pager:** ALWAYS use `git --no-pager` for all git commands (log, diff, show, branch, etc.) to avoid hanging on pager prompts.
 
-## Git Commit Message Convention (IMPORTANT — zsh fix)
+## Git Commit Message Convention
 
-**NEVER use `git commit -m "multiline..."` in zsh.** Newlines get swallowed.
+This repo follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-**ALWAYS write the message to a temp file and use `git commit -s -F /tmp/commit-msg.txt`.**
+Subject format: `<type>(<scope>): <subject>` where `<type>` is one of
+`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf` / `build` / `ci` / `style` / `revert`.
+Scope is optional; use it when a change is contained to one area
+(`feat(api): …`, `fix(plugin/kind): …`, `docs(readme): …`).
+Append `!` to the type/scope (or add a `BREAKING CHANGE:` footer)
+when the change breaks consumers.
 
-Pattern:
-```bash
-printf 'feat: subject line here\n\nBody paragraph explaining what and why.\n- bullet points for details\n' > /tmp/commit-msg.txt
-git --no-pager commit -s -F /tmp/commit-msg.txt
+Examples:
+```
+feat(plugin): expose health TTL via /workload/health?fresh=true
+fix(dockerd): wait for socket before declaring instance healthy
+docs(snapshot-internals): describe page-cache drop after rollback
+refactor(state)!: rename Status field values to typed constants
 ```
 
-The `-s` flag appends a `Signed-off-by:` trailer using your `git config user.name` / `user.email`.
+**zsh quirk:** never use `git commit -m "multiline..."` in zsh — newlines get swallowed.
+Write the message to a temp file and use `-F` instead:
+
+```bash
+printf 'feat(scope): subject line here\n\nBody paragraph explaining what and why.\n- bullet points for details\n' > /tmp/commit-msg.txt
+git --no-pager commit -F /tmp/commit-msg.txt
+```
 
 ## Code Conventions
 
