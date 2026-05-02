@@ -7,6 +7,10 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  # Disable Google Fonts loading. Geist + JetBrains Mono are self-hosted via
+  # docs/stylesheets/extra.css using files under docs/assets/fonts/. See
+  # docs/DASHBOARD-DESIGN.md §3b for the rationale.
+  font: false
   features:
     - navigation.tabs
     - navigation.sections
@@ -18,22 +22,26 @@ theme:
     - search.highlight
     - toc.follow
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
+    # Dark scheme (operator-default, per the dashboard's design doc).
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   icon:
     repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition
