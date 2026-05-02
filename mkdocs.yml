@@ -1,0 +1,77 @@
+site_name: dockersnap
+site_description: Instant snapshot, revert, and clone of Docker-based dev environments via ZFS
+site_url: https://johnbuluba.github.io/dockersnap/
+repo_url: https://github.com/johnbuluba/dockersnap
+repo_name: johnbuluba/dockersnap
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - User Guide:
+    - Getting Started: getting-started.md
+    - CLI Reference: cli.md
+    - Troubleshooting: troubleshooting.md
+  - Plugins:
+    - Authoring a plugin: plugins/authoring.md
+    - Plugin contract (reference): PLUGIN-DESIGN.md
+  - Internals:
+    - Architecture: DESIGN.md
+    - Snapshot internals: SNAPSHOT-INTERNALS.md
+    - Dashboard: DASHBOARD-DESIGN.md
+    - MCP server (parked): MCP-DESIGN.md
+  - Contributing:
+    - Contributor guide: contributing.md
+    - Conventions: agents.md

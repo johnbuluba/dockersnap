@@ -246,12 +246,27 @@ integrity. The plugin suites test the full deploy → snapshot → revert → cl
 
 ## Documentation
 
+Full docs site: **<https://johnbuluba.github.io/dockersnap/>**.
+
+User-facing:
+
+- [Getting Started](docs/getting-started.md) — install + 5-minute walkthrough
+- [CLI Reference](docs/cli.md) — every command with examples
+- [Authoring a Plugin](docs/plugins/authoring.md) — wrap your own workload
+- [Troubleshooting](docs/troubleshooting.md) — common issues
+
+Internals:
+
 - [docs/DESIGN.md](docs/DESIGN.md) — Architecture, decisions, rationale
 - [docs/SNAPSHOT-INTERNALS.md](docs/SNAPSHOT-INTERNALS.md) — ZFS / Docker interaction
-- [docs/PLUGIN-DESIGN.md](docs/PLUGIN-DESIGN.md) — Workload plugin contract + SDK
+- [docs/PLUGIN-DESIGN.md](docs/PLUGIN-DESIGN.md) — Workload plugin contract + SDK reference
 - [docs/DASHBOARD-DESIGN.md](docs/DASHBOARD-DESIGN.md) — Dashboard architecture, palette, design language
 - [docs/MCP-DESIGN.md](docs/MCP-DESIGN.md) — Future MCP server for LLM clients (parked design)
-- [AGENTS.md](AGENTS.md) — Conventions for AI / human contributors
+
+Contributing:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to build, test, and submit changes
+- [AGENTS.md](AGENTS.md) — conventions for AI / human contributors
 
 ## License
 
