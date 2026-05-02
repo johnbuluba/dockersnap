@@ -198,6 +198,66 @@ tasks:
     cmds:
       - rm -rf bin/
 
+  # ── docs (MkDocs Material → GitHub Pages) ──────────────────────────────────
+  #
+  # Local preview of https://johnbuluba.github.io/dockersnap/. The CI workflow
+  # at .github/workflows/docs.yml mirrors these steps; running task locally
+  # gives you the same site without pushing.
+
+  docs:venv:
+    desc: Create a local Python venv with mkdocs-material installed
+    cmds:
+      - python3 -m venv .venv-docs
+      - .venv-docs/bin/pip install --quiet --upgrade pip mkdocs-material
+    sources:
+      - mkdocs.yml
+    generates:
+      - .venv-docs/bin/mkdocs
+
+  docs:stage:
+    desc: Mirror repo-root CONTRIBUTING.md + AGENTS.md into docs/ (matches CI)
+    # MkDocs only sees files under docs/. The CI workflow does the same copy
+    # before `mkdocs build` so source files stay at the repo root (where
+    # GitHub picks them up automatically).
+    cmds:
+      - cp CONTRIBUTING.md docs/contributing.md
+      - cp AGENTS.md docs/agents.md
+    sources:
+      - CONTRIBUTING.md
+      - AGENTS.md
+    generates:
+      - docs/contributing.md
+      - docs/agents.md
+
+  docs:unstage:
+    desc: Remove staged copies of CONTRIBUTING.md / AGENTS.md from docs/
+    cmds:
+      - rm -f docs/contributing.md docs/agents.md
+
+  docs:serve:
+    desc: Run the docs site locally with hot reload at http://127.0.0.1:8000
+    deps: [docs:venv, docs:stage]
+    # `defer` runs after `cmds` whether the server exited cleanly or via Ctrl-C,
+    # so the staged copies are always cleaned up.
+    cmds:
+      - defer: { task: docs:unstage }
+      - .venv-docs/bin/mkdocs serve
+
+  docs:build:
+    desc: Build the docs site into ./site/ (with --strict, matching CI)
+    deps: [docs:venv, docs:stage]
+    cmds:
+      - defer: { task: docs:unstage }
+      - .venv-docs/bin/mkdocs build --strict
+    generates:
+      - site/index.html
+
+  docs:clean:
+    desc: Remove the docs venv and built site
+    cmds:
+      - rm -rf .venv-docs site
+      - task: docs:unstage
+
   # ── local install ───────────────────────────────────────────────────────────
 
   install:

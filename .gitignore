@@ -39,6 +39,14 @@ ci
 # Personal session notes — kept locally, not shipped publicly.
 SESSION.md
 
+# MkDocs local build artifacts (`task docs:serve` / `task docs:build`).
+# CONTRIBUTING.md / AGENTS.md are tracked at the repo root; the docs/ copies
+# are staged transiently for the build (CI does the same — see docs.yml).
+.venv-docs/
+site/
+docs/contributing.md
+docs/agents.md
+
 # Dashboard build artifacts
 dashboard/node_modules/
 dashboard/dist/
