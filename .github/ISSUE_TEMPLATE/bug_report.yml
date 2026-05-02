@@ -1,0 +1,99 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in as much as
+        you can — partial reports are fine, but the more we have up front,
+        the faster we can help.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the issue.
+      placeholder: |
+        Ran `dockersnap revert demo golden` and the dockerd never came back up.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: |
+        Instance returns to running state with the snapshot's data.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Exact CLI commands or API calls.
+      render: bash
+      placeholder: |
+        dockersnap create demo --plugin echo
+        dockersnap snapshot demo golden
+        dockersnap docker demo -- run --rm alpine touch /test
+        dockersnap revert demo golden
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Daemon logs
+      description: |
+        Output of `sudo journalctl -u dockersnap -n 200 --no-pager`
+        (or however you run the daemon). Trim secrets if any.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: dockersnap version
+      description: Output of `dockersnap version`.
+      placeholder: "v0.1.0+main.876f817"
+    validations:
+      required: true
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel + distro
+      description: "`uname -r` and the distro/version."
+      placeholder: "6.5.0-15-generic / Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: zfs
+    attributes:
+      label: ZFS version
+      description: Output of `zfs version`.
+      placeholder: "zfs-2.2.0-0ubuntu1"
+    validations:
+      required: false
+
+  - type: input
+    id: docker
+    attributes:
+      label: Docker version
+      description: Output of `docker --version`.
+      placeholder: "Docker version 27.1.1, build 6312585"
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Workarounds tried, related issues, screenshots, etc.
+    validations:
+      required: false

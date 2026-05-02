@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/johnbuluba/dockersnap/discussions
+    about: Have a question, need help, or want to talk about an idea? Use Discussions.
+  - name: Documentation
+    url: https://johnbuluba.github.io/dockersnap/
+    about: Setup, CLI reference, troubleshooting, plugin authoring.

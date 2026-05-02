@@ -1,0 +1,23 @@
+# golangci-lint config (v2 schema).
+# Run with `task lint` (or `golangci-lint run` directly).
+#
+# We ship a deliberately minimal set: the standard linters that
+# golangci-lint enables by default, plus a few mature, low-noise extras
+# (misspell, unconvert). Add stricter linters as the codebase warrants —
+# don't enable a linter without first cleaning up its findings.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - misspell
+    - unconvert
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck

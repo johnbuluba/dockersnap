@@ -1,5 +1,11 @@
 # dockersnap
 
+[![CI](https://github.com/johnbuluba/dockersnap/actions/workflows/ci.yml/badge.svg)](https://github.com/johnbuluba/dockersnap/actions/workflows/ci.yml)
+[![Docs](https://github.com/johnbuluba/dockersnap/actions/workflows/docs.yml/badge.svg)](https://johnbuluba.github.io/dockersnap/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/johnbuluba/dockersnap.svg)](https://pkg.go.dev/github.com/johnbuluba/dockersnap/pkg/pluginsdk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/johnbuluba/dockersnap)](https://goreportcard.com/report/github.com/johnbuluba/dockersnap)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 > Instant snapshot, revert, and clone of Docker-based dev environments via ZFS.
 
 `dockersnap` runs each environment inside an **instance** — an isolated Docker
